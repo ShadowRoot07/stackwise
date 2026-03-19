@@ -1,6 +1,7 @@
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from typing import Optional, List, Tuple
+from app.celery.tasks import generate_project_description
 from datetime import datetime
 from app.database import models
 from app.schemas import schemas
@@ -185,7 +186,14 @@ def create_project(db: Session, project_data: schemas.ProjectCreate, user_id: in
         db.add(project)
         db.commit()
         db.refresh(project)
+
+        # Disparamos la IA si faltan datos, pero de forma independiente
+        if not project.description and project.language and project.framework:
+            generate_project_description.delay(project.id)
+        
+        # El return DEBE estar fuera del if y alineado con el db.refresh
         return project
+
     except IntegrityError:
         db.rollback()
         raise ValueError(f"Project with key '{project_data.project_key}' already exists")
