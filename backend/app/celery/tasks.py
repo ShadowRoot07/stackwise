@@ -11,7 +11,7 @@ from app.database.database import SessionLocal
 from app.database import models
 from app.utils.stack_trace_parser import parse_stack_trace, get_relevant_files, StackFrame
 from app.utils.git_fetcher import GitFetcher, RepoConfig
-from app.utils.prompt_builder import build_debugging_prompt
+from app.utils.prompt_builder import build_debugging_prompt, build_stack_description_prompt
 
 logger = logging.getLogger(__name__)
 
@@ -348,4 +348,25 @@ def _call_llm(prompt: str) -> dict:
         # Catch-all for other OpenAI errors
         logger.error(f"OpenAI Error: {e}", exc_info=True)
         raise ValueError(f"OpenAI error: {e}")
+
+
+@celery_app.task(name="app.celery.tasks.generate_project_description")
+def generate_project_description(project_id: int):
+    db: Session = SessionLocal()
+    try:
+        project = db.query(models.Project).filter(models.Project.id == project_id).first()
+        if not project or not project.language or not project.framework:
+            return
+
+        # Construimos el prompt
+        prompt = build_stack_description_prompt(project.language, project.framework)
+        
+        # Llamamos a la IA (usando la función que ya existe en el archivo)
+        result = _call_llm(prompt)
+        
+        # Guardamos el resultado en la descripción del proyecto
+        project.description = result["analysis"]
+        db.commit()
+    finally:
+        db.close()
 

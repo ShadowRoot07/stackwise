@@ -180,3 +180,17 @@ def _limit_code_context(
     
     return limited
 
+
+def build_stack_description_prompt(language: str, framework: str) -> str:
+    """
+    Construye un prompt para generar una descripción profesional de un stack tecnológico.
+    """
+    return f"""You are a senior software architect. 
+Generate a professional, concise description (max 3 sentences) for a project using the following stack:
+- Language: {language}
+- Framework: {framework}
+
+The description should highlight why this combination is powerful and what kind of applications it's typically used for. 
+Keep it technical yet accessible. Do not use generic filler words.
+"""
+
